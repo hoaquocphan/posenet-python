@@ -3,6 +3,7 @@ import cv2
 import time
 import argparse
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 from posenet.posenet_factory import load_model
 
 parser = argparse.ArgumentParser()
@@ -13,6 +14,7 @@ parser.add_argument('--multiplier', type=float, default=1.0)  # only for mobilen
 parser.add_argument('--notxt', action='store_true')
 parser.add_argument('--image_dir', type=str, default='./images')
 parser.add_argument('--output_dir', type=str, default='./output')
+parser.add_argument('--output_data_dir', type=str, default='./output_data')
 args = parser.parse_args()
 
 
@@ -20,6 +22,10 @@ def main():
 
     print('Tensorflow version: %s' % tf.__version__)
     assert tf.__version__.startswith('2.'), "Tensorflow version 2.x must be used!"
+
+    if args.output_data_dir:
+        if not os.path.exists(args.output_data_dir):
+            os.makedirs(args.output_data_dir)
 
     if args.output_dir:
         if not os.path.exists(args.output_dir):
@@ -38,6 +44,9 @@ def main():
     for f in filenames:
         img = cv2.imread(f)
         pose_scores, keypoint_scores, keypoint_coords = posenet.estimate_multiple_poses(img)
+        #print('hoaphan pose_scores: %s' % pose_scores)
+        #print('hoaphan keypoint_scores: %s' % keypoint_scores)
+        #print('hoaphan keypoint_coords: %s' % keypoint_coords)
         img_poses = posenet.draw_poses(img, pose_scores, keypoint_scores, keypoint_coords)
         posenet.print_scores(f, pose_scores, keypoint_scores, keypoint_coords)
         cv2.imwrite(os.path.join(args.output_dir, os.path.relpath(f, args.image_dir)), img_poses)

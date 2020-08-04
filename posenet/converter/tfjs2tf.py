@@ -1,6 +1,7 @@
 import os
 import tensorflow as tf
 import tfjs_graph_converter as tfjs
+import tfjs_graph_converter.api as tfjs_api
 import posenet.converter.config as config
 import posenet.converter.tfjsdownload as tfjsdownload
 
@@ -26,7 +27,8 @@ def convert(model_cfg):
     # This link was a great help to do this:
     # https://www.programcreek.com/python/example/104885/tensorflow.python.saved_model.signature_def_utils.build_signature_def
 
-    graph = tfjs.api.load_graph_model(model_cfg['tfjs_dir'])
+    #graph = tfjs.api.load_graph_model(model_cfg['tfjs_dir'])
+    graph = tfjs_api.load_graph_model(model_cfg['tfjs_dir'])
     builder = tf.compat.v1.saved_model.Builder(model_cfg['tf_dir'])
 
     with tf.compat.v1.Session(graph=graph) as sess:

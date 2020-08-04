@@ -11,11 +11,6 @@ def within_nms_radius(poses, squared_nms_radius, point, keypoint_id):
     return False
 
 
-def within_nms_radius_fast(pose_coords, squared_nms_radius, point):
-    if not pose_coords.shape[0]:
-        return False
-    return np.any(np.sum((pose_coords - point) ** 2, axis=1) <= squared_nms_radius)
-
 
 def get_instance_score(
         existing_poses, squared_nms_radius,
@@ -26,19 +21,6 @@ def get_instance_score(
                 existing_poses, squared_nms_radius,
                 keypoint_coords[keypoint_id], keypoint_id):
             not_overlapped_scores += keypoint_scores[keypoint_id]
-    return not_overlapped_scores / len(keypoint_scores)
-
-
-def get_instance_score_fast(
-        exist_pose_coords,
-        squared_nms_radius,
-        keypoint_scores, keypoint_coords):
-
-    if exist_pose_coords.shape[0]:
-        s = np.sum((exist_pose_coords - keypoint_coords) ** 2, axis=2) > squared_nms_radius
-        not_overlapped_scores = np.sum(keypoint_scores[np.all(s, axis=0)])
-    else:
-        not_overlapped_scores = np.sum(keypoint_scores)
     return not_overlapped_scores / len(keypoint_scores)
 
 
@@ -101,6 +83,46 @@ def build_part_with_score_fast(score_threshold, local_max_radius, scores):
     return parts
 
 
+def within_nms_radius_fast(pose_coords, squared_nms_radius, point):
+    #print('pose_coords: {}'.format(pose_coords))
+    if not pose_coords.shape[0]:
+        #print('within_nms_radius_fast1: {}'.format("false"))
+        return False
+    #print('within_nms_radius_fast2: {}'.format(np.any(np.sum((pose_coords - point) ** 2, axis=1) <= squared_nms_radius)))
+    #print('pose_coords: {}'.format(pose_coords))
+    #print('point: {}'.format(point))
+    #print('(pose_coords - point): {}'.format((pose_coords - point)))
+    #print('(pose_coords - point) ** 2: {}'.format((pose_coords - point) ** 2))
+    #print('np.sum((pose_coords - point) ** 2, axis=1): {}'.format(np.sum((pose_coords - point) ** 2, axis=1)))
+    #print('np.any(np.sum((pose_coords - point) ** 2, axis=1) <= squared_nms_radius): {}'.format(np.any(np.sum((pose_coords - point) ** 2, axis=1) <= squared_nms_radius)))
+    #print("")
+    return np.any(np.sum((pose_coords - point) ** 2, axis=1) <= squared_nms_radius)
+
+def get_instance_score_fast(
+        exist_pose_coords,
+        squared_nms_radius,
+        keypoint_scores, keypoint_coords):
+
+    if exist_pose_coords.shape[0]:
+        #print('exist_pose_coords: {}'.format(exist_pose_coords))
+        #print('keypoint_coords: {}'.format(keypoint_coords))
+        #print('(exist_pose_coords - keypoint_coords): {}'.format(exist_pose_coords - keypoint_coords))
+        #print('(exist_pose_coords - keypoint_coords) ** 2: {}'.format((exist_pose_coords - keypoint_coords)** 2))
+        #print('np.sum((exist_pose_coords - keypoint_coords) ** 2, axis=2): {}'.format(np.sum((exist_pose_coords - keypoint_coords) ** 2, axis=2)))
+        
+        s = np.sum((exist_pose_coords - keypoint_coords) ** 2, axis=2) > squared_nms_radius
+        not_overlapped_scores = np.sum(keypoint_scores[np.all(s, axis=0)])
+
+        #print('s: {}'.format(s))
+        #print('np.all(s, axis=0): {}'.format(np.all(s, axis=0)))
+        #print('keypoint_scores: {}'.format(keypoint_scores))
+        #print('keypoint_scores[np.all(s, axis=0)]: {}'.format(keypoint_scores[np.all(s, axis=0)]))
+        #print("")
+    else:
+        not_overlapped_scores = np.sum(keypoint_scores)
+    return not_overlapped_scores / len(keypoint_scores)
+
+
 def decode_multiple_poses(
         scores, offsets, displacements_fwd, displacements_bwd, output_stride,
         max_pose_detections=10, score_threshold=0.5, nms_radius=20, min_pose_score=0.5):
@@ -109,23 +131,40 @@ def decode_multiple_poses(
     pose_scores = np.zeros(max_pose_detections)
     pose_keypoint_scores = np.zeros((max_pose_detections, NUM_KEYPOINTS))
     pose_keypoint_coords = np.zeros((max_pose_detections, NUM_KEYPOINTS, 2))
+    
+    #print('pose_keypoint_coords: {}'.format(pose_keypoint_coords))
 
-    squared_nms_radius = nms_radius ** 2
+    squared_nms_radius = nms_radius ** 2 # <=> nms_radius ^ 2 = 400
 
     scored_parts = build_part_with_score_fast(score_threshold, LOCAL_MAXIMUM_RADIUS, scores)
     scored_parts = sorted(scored_parts, key=lambda x: x[0], reverse=True)
-
     # change dimensions from (h, w, x) to (h, w, x//2, 2) to allow return of complete coord array
     height = scores.shape[0]
     width = scores.shape[1]
     offsets = offsets.reshape(height, width, 2, -1).swapaxes(2, 3)
     displacements_fwd = displacements_fwd.reshape(height, width, 2, -1).swapaxes(2, 3)
-    displacements_bwd = displacements_bwd.reshape(height, width, 2, -1).swapaxes(2, 3)
+    displacements_bwd = displacements_bwd.reshape(height, width, 2, -1).swapaxes(2, 3) #(33,33,16,2)
+
+    '''
+    print('offsets_result shape: {}'.format(offsets.shape))
+    print('displacement_fwd_result shape: {}'.format(displacements_fwd.shape))
+    print('displacement_bwd_result shape: {}'.format(displacements_bwd.shape))
+
+    for root_score, root_id, root_coord in scored_parts:
+        root_image_coords = root_coord * output_stride + offsets[root_coord[0], root_coord[1], root_id]
+        print('root_score: {}'.format(root_score))
+        print('root_id: {}'.format(root_id))
+        print('root_coord: {}'.format(root_coord))
+        print('root_image_coords: {}'.format(root_image_coords))
+        print("")
+    '''
 
     for root_score, root_id, root_coord in scored_parts:
         root_image_coords = root_coord * output_stride + offsets[
             root_coord[0], root_coord[1], root_id]
 
+        #print('pose_keypoint_coords[:pose_count, root_id, :]: {}'.format(pose_keypoint_coords[:pose_count, root_id, :]))
+        #print('pose_keypoint_coords: {}'.format(pose_keypoint_coords))
         if within_nms_radius_fast(
                 pose_keypoint_coords[:pose_count, root_id, :], squared_nms_radius, root_image_coords):
             continue
@@ -134,9 +173,18 @@ def decode_multiple_poses(
             root_score, root_id, root_image_coords,
             scores, offsets, output_stride,
             displacements_fwd, displacements_bwd)
-
+        #print('pose_keypoint_coords[:pose_count, :, :]: {}'.format(pose_keypoint_coords[:pose_count, :, :]))
         pose_score = get_instance_score_fast(
             pose_keypoint_coords[:pose_count, :, :], squared_nms_radius, keypoint_scores, keypoint_coords)
+        
+        #print('pose_count: {}'.format(pose_count))
+        #print('root_score: {}'.format(root_score))
+        #print('root_id: {}'.format(root_id))
+        #print('root_coord: {}'.format(root_coord))
+        #print('pose_score: {}'.format(pose_score))
+        #print('keypoint_scores: {}'.format(keypoint_scores))
+        #print('keypoint_coords: {}'.format(keypoint_coords))
+        #print("")
 
         # NOTE this isn't in the original implementation, but it appears that by initially ordering by
         # part scores, and having a max # of detections, we can end up populating the returned poses with
@@ -147,7 +195,10 @@ def decode_multiple_poses(
             pose_keypoint_scores[pose_count, :] = keypoint_scores
             pose_keypoint_coords[pose_count, :, :] = keypoint_coords
             pose_count += 1
-
+        
+        #print('pose_keypoint_coords[:pose_count, :, :]: {}'.format(pose_keypoint_coords[:pose_count, :, :]))
+        #if pose_count == 1:
+        
         if pose_count >= max_pose_detections:
             break
 
