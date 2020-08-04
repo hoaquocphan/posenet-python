@@ -1,6 +1,6 @@
 ## PoseNet Python
 
-This repository originates from [rwightman/posenet-python](https://github.com/rwightman/posenet-python) and has been 
+This repository originates from [rwightman/posenet-python](https://github.com/rwightman/posenet-python) ; [atomicbits/posenet-python](https://github.com/atomicbits/posenet-python) and has been 
 heavily refactored to: 
  * make it run the posenet v2 networks 
  * get it to work with the latest tfjs graph serialization 
