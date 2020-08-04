@@ -90,6 +90,9 @@ class PoseNet:
     def print_scores(self, image_name, pose_scores, keypoint_scores, keypoint_coords):
         print()
         print("Results for image: %s" % image_name)
+        f5= open("output_data/image_name.txt","w+")
+        f5.write('{}\n'.format(image_name))
+        f5.close()
         for pi in range(len(pose_scores)):
             if pose_scores[pi] == 0.:
                 break
